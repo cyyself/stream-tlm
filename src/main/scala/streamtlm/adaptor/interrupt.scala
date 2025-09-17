@@ -40,7 +40,7 @@ class InterruptAdaptor(intParams: IntBusEdgeParams,
             cnt := cnt - 1.U
         }
     }
-    io.int.vec := Cat(outRegs.zip(counters).map { case (reg, cnt) => reg || (cnt =/= 0.U) }.reverse)
+    io.int.vec := Cat(outRegs.zip(counters).map { case (reg, cnt) => RegNext(reg || (cnt =/= 0.U)) }.reverse)
 
     val rxAddr = io.axis_in.bits.data(addrBits - 1, 0)
     val rxType = io.axis_in.bits.data(addrBits + 1, addrBits)

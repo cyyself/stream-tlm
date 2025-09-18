@@ -7,21 +7,22 @@ import streamtlm.adaptor._
 import streamtlm.bus._
 
 case class EdgeInterface (
-    val name: String = "Edge"
+    val name: String = "Edge",
+    val axisAddr: Int = 0
 )
 
 class AXI4EdgeParams(
     override val name: String = "AXI4",
-    val axisAddr: Int,
+    override val axisAddr: Int,
     val interface: AXI4Params = new AXI4Params(),
     val isMaster: Boolean = true
-) extends EdgeInterface(name)
+) extends EdgeInterface(name, axisAddr)
 
 class IntBusEdgeParams(
     override val name: String = "INT",
-    val axisAddr: Int,
+    override val axisAddr: Int,
     val width: Int = 1
-) extends EdgeInterface(name)
+) extends EdgeInterface(name, axisAddr)
 
 class StreamTLMParams(
     val axisWidth: Int = 512,
@@ -45,7 +46,7 @@ class StreamTLMTop(params: StreamTLMParams) extends Module {
     })
 
     var axisPorts = scala.collection.mutable.Map[Int, (DecoupledIO[AXIS], DecoupledIO[AXIS])]() // axisAddr -> (in, out)
-    params.edges.zipWithIndex.foreach { case (edge, idx) =>
+    params.edges.foreach { case edge =>
         edge match {
             case axi4: AXI4EdgeParams => {
                 val axi = new AXI4(axi4.interface)
@@ -56,10 +57,10 @@ class StreamTLMTop(params: StreamTLMParams) extends Module {
                 val adaptor = Module(new AXI4Adaptor(
                     axiParams = axi4,
                     axisParams = new AXISParams(dataWidth = params.axisWidth),
-                    axisAddr = idx,
+                    axisAddr = edge.axisAddr,
                     addrBits = params.axisAddrBits
                 ))
-                axisPorts(idx) = (adaptor.io.axis_in, adaptor.io.axis_out)
+                axisPorts(edge.axisAddr) = (adaptor.io.axis_in, adaptor.io.axis_out)
                 adaptor.io.axi <> exportIO
             }
             case int: IntBusEdgeParams => {
@@ -71,10 +72,10 @@ class StreamTLMTop(params: StreamTLMParams) extends Module {
                 val adaptor = Module(new InterruptAdaptor(
                     intParams = int,
                     axisParams = new AXISParams(dataWidth = params.axisWidth),
-                    axisAddr = idx,
+                    axisAddr = edge.axisAddr,
                     addrBits = params.axisAddrBits
                 ))
-                axisPorts(idx) = (adaptor.io.axis_in, adaptor.io.axis_out)
+                axisPorts(edge.axisAddr) = (adaptor.io.axis_in, adaptor.io.axis_out)
                 exportIO := adaptor.io.int
             }
             case _ => println(s"Unknown edge type: ${edge.name}")
@@ -83,8 +84,8 @@ class StreamTLMTop(params: StreamTLMParams) extends Module {
 
     // tx
     val txArb = Module(new RRArbiter(new AXIS(new AXISParams(dataWidth = params.axisWidth)), axisPorts.size))
-    axisPorts.toSeq.zipWithIndex.foreach { case ((addr, (in, out)), idx) =>
-        out <> txArb.io.in(idx)
+    axisPorts.toSeq.foreach { case (addr, (in, out)) =>
+        out <> txArb.io.in(addr)
         when (out.fire) {
             assert(out.bits.last.get, "TX AXIS packet must fit in a single beat")
         }
@@ -96,9 +97,9 @@ class StreamTLMTop(params: StreamTLMParams) extends Module {
     axis.in <> rxQueue.io.enq
     val curRxDst = rxQueue.io.deq.bits.data(params.axisAddrBits, 0).asUInt
     rxQueue.io.deq.ready := false.B
-    axisPorts.toSeq.zipWithIndex.foreach { case ((addr, (in, out)), idx) =>
+    axisPorts.toSeq.foreach { case (addr, (in, out)) =>
         in.bits := rxQueue.io.deq.bits
-        when (curRxDst === idx.U) {
+        when (curRxDst === addr.U) {
             in.valid := rxQueue.io.deq.valid
             rxQueue.io.deq.ready := in.ready
         } .otherwise {

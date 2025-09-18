@@ -14,6 +14,7 @@ object streamtlm extends SbtModule { m =>
     )
     override def ivyDeps = Agg(
         ivy"org.chipsalliance::chisel:7.0.0-RC1",
+        ivy"org.scala-lang::toolkit:0.7.0",
     )
     override def scalacPluginIvyDeps = Agg(
         ivy"org.chipsalliance:::chisel-plugin:7.0.0-RC1",

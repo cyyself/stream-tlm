@@ -72,6 +72,23 @@ class AXI4_AR(params: AXI4Params) extends Bundle {
         ).filter(x => validNames.contains(x._2))
         res
     }
+
+    def genBundleDecode: Seq[(String, Int)] = {
+        val res = Seq(
+            ("user", params.arUserWidth),
+            ("region", if (params.hasRegion) 4 else 0),
+            ("qos", if (params.hasQos) 4 else 0),
+            ("prot", if (params.hasProt) 3 else 0),
+            ("cache", if (params.hasCache) 4 else 0),
+            ("lock", if (params.hasLock) 1 else 0),
+            ("burst", if (params.isLite) 0 else 2),
+            ("size", if (params.isLite) 0 else 3),
+            ("len", if (params.isLite) 0 else 8),
+            ("addr", params.addrWidth),
+            ("id", params.idWidth)
+        ).filter(_._2 > 0)
+        res
+    }
 }
 
 class AXI4_R(params: AXI4Params) extends Bundle {
@@ -105,6 +122,17 @@ class AXI4_R(params: AXI4Params) extends Bundle {
             (s"${dstName}_r_valid", s"${prefix}_RVALID"),
             (s"${dstName}_r_ready", s"${prefix}_RREADY")
         ).filter(x => validNames.contains(x._2))
+        res
+    }
+
+    def genBundleDecode: Seq[(String, Int)] = {
+        val res = Seq(
+            ("user", params.rUserWidth),
+            ("last", if (params.isLite) 0 else 1),
+            ("resp", 2),
+            ("data", params.dataWidth),
+            ("id", params.idWidth)
+        ).filter(_._2 > 0)
         res
     }
 }
@@ -160,6 +188,23 @@ class AXI4_AW(params: AXI4Params) extends Bundle {
         ).filter(x => validNames.contains(x._2))
         res
     }
+
+    def genBundleDecode: Seq[(String, Int)] = {
+        val res = Seq(
+            ("user", params.awUserWidth),
+            ("region", if (params.hasRegion) 4 else 0),
+            ("qos", if (params.hasQos) 4 else 0),
+            ("prot", if (params.hasProt) 3 else 0),
+            ("cache", if (params.hasCache) 4 else 0),
+            ("lock", if (params.hasLock) 1 else 0),
+            ("burst", if (params.isLite) 0 else 2),
+            ("size", if (params.isLite) 0 else 3),
+            ("len", if (params.isLite) 0 else 8),
+            ("addr", params.addrWidth),
+            ("id", params.idWidth)
+        ).filter(_._2 > 0)
+        res
+    }
 }
 
 class AXI4_W(params: AXI4Params) extends Bundle {
@@ -192,6 +237,16 @@ class AXI4_W(params: AXI4Params) extends Bundle {
         ).filter(x => validNames.contains(x._2))
         res
     }
+
+    def genBundleDecode: Seq[(String, Int)] = {
+        val res = Seq(
+            ("user", params.wUserWidth),
+            ("last", 1),
+            ("strb", params.dataWidth/8),
+            ("data", params.dataWidth)
+        ).filter(_._2 > 0)
+        res
+    }
 }
 
 class AXI4_B(params: AXI4Params) extends Bundle {
@@ -219,6 +274,15 @@ class AXI4_B(params: AXI4Params) extends Bundle {
             (s"${dstName}_b_valid", s"${prefix}_BVALID"),
             (s"${dstName}_b_ready", s"${prefix}_BREADY")
         ).filter(x => validNames.contains(x._2))
+        res
+    }
+
+    def genBundleDecode: Seq[(String, Int)] = {
+        val res = Seq(
+            ("user", params.bUserWidth),
+            ("resp", 2),
+            ("id", params.idWidth)
+        ).filter(_._2 > 0)
         res
     }
 }

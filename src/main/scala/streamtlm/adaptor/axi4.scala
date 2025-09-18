@@ -64,4 +64,32 @@ class AXI4Adaptor(axiParams: AXI4EdgeParams,
         assert(curRxDst < rxChannels.length.U, "RX AXIS packet has invalid channel ID")
         assert(rxAddr === axisAddr.U, "RX AXIS packet has invalid address")
     }
+
+    def generateTxBundleDecode(): Map[Int,(String, Seq[(String, Int)])] = {
+        val res = txChannels.zipWithIndex.map { case (ch, idx) =>
+            val (chName, fields) = ch.bits match {
+                case axi: AXI4_AR => ("AR", axi.genBundleDecode)
+                case axi: AXI4_AW => ("AW", axi.genBundleDecode)
+                case axi: AXI4_W  => ("W", axi.genBundleDecode)
+                case axi: AXI4_B  => ("B", axi.genBundleDecode)
+                case axi: AXI4_R  => ("R", axi.genBundleDecode)
+            }
+            (idx, (chName, fields))
+        }.toMap
+        res
+    }
+
+    def generateRxBundleDecode(): Map[Int,(String, Seq[(String, Int)])] = {
+        val res = rxChannels.zipWithIndex.map { case (ch, idx) =>
+            val (chName, fields) = ch.bits match {
+                case axi: AXI4_AR => ("AR", axi.genBundleDecode)
+                case axi: AXI4_AW => ("AW", axi.genBundleDecode)
+                case axi: AXI4_W  => ("W", axi.genBundleDecode)
+                case axi: AXI4_B  => ("B", axi.genBundleDecode)
+                case axi: AXI4_R  => ("R", axi.genBundleDecode)
+            }
+            (idx, (chName, fields))
+        }.toMap
+        res
+    }
 }

@@ -46,36 +46,56 @@ class StreamTLMTop(params: StreamTLMParams) extends Module {
     })
 
     var axisPorts = scala.collection.mutable.Map[Int, (DecoupledIO[AXIS], DecoupledIO[AXIS])]() // axisAddr -> (in, out)
+    var portBundleMap = scala.collection.mutable.Map[Int,(
+            String, // name
+            String, // type
+            Map[Int,(String, Seq[(String, Int)])], // tx to   software Ports
+            Map[Int,(String, Seq[(String, Int)])]  // rx from software Ports
+        )]()
     params.edges.foreach { case edge =>
         edge match {
             case axi4: AXI4EdgeParams => {
                 val axi = new AXI4(axi4.interface)
                 val exportIO = if (axi4.isMaster) IO(Flipped(axi)) else IO(axi)
-                exportIO.suggestName(axi4.name)
-                ioList = ioList ++ axi.genIO(axi4.name, axi4.isMaster)
-                instConnect = instConnect ++ axi.genInstConnect(axi4.name, axi4.name)
+                exportIO.suggestName(edge.name)
+                ioList = ioList ++ axi.genIO(edge.name, axi4.isMaster)
+                instConnect = instConnect ++ axi.genInstConnect(edge.name, edge.name)
                 val adaptor = Module(new AXI4Adaptor(
                     axiParams = axi4,
                     axisParams = new AXISParams(dataWidth = params.axisWidth),
                     axisAddr = edge.axisAddr,
                     addrBits = params.axisAddrBits
                 ))
+                require(!axisPorts.contains(edge.axisAddr), s"Duplicate axisAddr ${edge.axisAddr} detected")
                 axisPorts(edge.axisAddr) = (adaptor.io.axis_in, adaptor.io.axis_out)
+                portBundleMap(edge.axisAddr) = (
+                    edge.name,
+                    "axi4" + (if (axi4.isMaster) "-master" else "-slave"),
+                    adaptor.generateTxBundleDecode(),
+                    adaptor.generateRxBundleDecode()
+                )
                 adaptor.io.axi <> exportIO
             }
             case int: IntBusEdgeParams => {
                 val intbus = new IntBus(new IntBusParams(width = int.width))
                 val exportIO = IO(Output(intbus))
-                exportIO.suggestName(int.name)
-                ioList = ioList ++ intbus.genIO(int.name, true)
-                instConnect = instConnect ++ intbus.genInstConnect(int.name, int.name)
+                exportIO.suggestName(edge.name)
+                ioList = ioList ++ intbus.genIO(edge.name, true)
+                instConnect = instConnect ++ intbus.genInstConnect(edge.name, edge.name)
                 val adaptor = Module(new InterruptAdaptor(
                     intParams = int,
                     axisParams = new AXISParams(dataWidth = params.axisWidth),
                     axisAddr = edge.axisAddr,
                     addrBits = params.axisAddrBits
                 ))
+                require(!axisPorts.contains(edge.axisAddr), s"Duplicate axisAddr ${edge.axisAddr} detected")
                 axisPorts(edge.axisAddr) = (adaptor.io.axis_in, adaptor.io.axis_out)
+                portBundleMap(edge.axisAddr) = (
+                    edge.name,
+                    "intbus",
+                    Map(),
+                    Map()
+                )
                 exportIO := adaptor.io.int
             }
             case _ => println(s"Unknown edge type: ${edge.name}")
@@ -139,4 +159,11 @@ endmodule
     """.strip().getBytes())
     } /* End of genVerilogWrapper */
     genVerilogWrapper()
+
+    def genPortBundleMap(): Unit = {
+        val filePath = params.outDir.resolve("ports.json")
+        Files.createDirectories(filePath.getParent())
+        Files.write(filePath, upickle.default.write(portBundleMap.toMap, indent = 4).getBytes())
+    }
+    genPortBundleMap()
 }

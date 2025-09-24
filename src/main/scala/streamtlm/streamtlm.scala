@@ -115,7 +115,7 @@ class StreamTLMTop(params: StreamTLMParams) extends Module {
     // rx
     val rxQueue = Module(new Queue(new AXIS(new AXISParams(dataWidth = params.axisWidth)), 2))
     axis.in <> rxQueue.io.enq
-    val curRxDst = rxQueue.io.deq.bits.data(params.axisAddrBits, 0).asUInt
+    val curRxDst = rxQueue.io.deq.bits.data(params.axisAddrBits - 1, 0).asUInt
     rxQueue.io.deq.ready := false.B
     axisPorts.toSeq.foreach { case (addr, (in, out)) =>
         in.bits := rxQueue.io.deq.bits
